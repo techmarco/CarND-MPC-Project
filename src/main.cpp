@@ -77,7 +77,7 @@ int main() {
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
     string sdata = string(data).substr(0, length);
-    cout << sdata << endl;
+    // cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
       string s = hasData(sdata);
       if (s != "") {
@@ -100,24 +100,64 @@ int main() {
           */
           double steer_value;
           double throttle_value;
+          Eigen::Map<Eigen::VectorXd> eigptsx(&ptsx[0], ptsx.size());
+          Eigen::Map<Eigen::VectorXd> eigptsy(&ptsy[0], ptsy.size());
+
+          // transform global to local coordinates
+          for (size_t i=0; i<ptsx.size(); i++) {
+            double x_p = ptsx[i];
+            double y_p = ptsy[i];
+
+            double x_c = px;
+            double y_c = py;
+
+            double xv = (x_p - x_c) * cos(psi) + (y_p - y_c) * sin(psi);
+            double yv = (y_p - y_c) * cos(psi) - (x_p - x_c) * sin(psi);
+
+            eigptsx[i] = xv;
+            eigptsy[i] = yv;
+          }
+
+          auto coeffs = polyfit(eigptsx, eigptsy, 3);
+
+          double cte = polyeval(coeffs, 0);
+          double epsi = -atan(coeffs[1]);
+
+          Eigen::VectorXd state(6);
+          state << 0, 0, 0, v, cte, epsi;
 
           json msgJson;
-          msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
+          auto solution = mpc.Solve(state, coeffs);
+
+          for (size_t i=0; i<N-1; i++) {
+            mpc_x_vals.push_back(solution[x_start + 1 + i]);
+            mpc_y_vals.push_back(solution[y_start + 1 + i]);
+          }
+
+          steer_value = -solution[delta_start];
+          throttle_value = solution[a_start];
+
+          msgJson["steering_angle"] = steer_value;
+          msgJson["throttle"] = throttle_value;
+
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
-
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
           //Display the waypoints/reference line
           vector<double> next_x_vals;
           vector<double> next_y_vals;
+
+          for (size_t i=0; i<ptsx.size(); i++) {
+            next_x_vals.push_back(eigptsx[i]);
+            next_y_vals.push_back(eigptsy[i]);
+          }
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
@@ -127,7 +167,7 @@ int main() {
 
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+          // std::cout << msg << std::endl;
           // Latency
           // The purpose is to mimic real driving conditions where
           // the car does actuate the commands instantly.
