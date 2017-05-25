@@ -22,7 +22,7 @@ $y$~t+1~ = $y_t$ + $v_t$ * $cos$($\psi_t$) * $dt$
 
 $\psi$~t+1~ = $\psi_t$ + $\frac{v_t}{L_f}$ * $cos$($\psi_t$) * $dt$
 
-$v$~t+1~ = $v_t$ + $a_t$ * $cos$($\psi_t$) * $dt$
+$v$~t+1~ = $v_t$ + $a_t$ * $dt$
 
 $cte$~t+1~ = $f(x_t) - y_t + (v_t * sin(e\psi_t) * dt)$
 
